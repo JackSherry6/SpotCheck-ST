@@ -45,6 +45,21 @@ Attempt to create perturbations of various clustering parameters, track the clus
   </tr>
   <tr>
     <td align="center">
+      <img src="example_plots/soybean_clusters.png" width="350">
+    </td>
+    <td align="center">
+      <img src="example_plots/soybean_umis.png" width="350">
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th align="center">16 µm bins</th>
+    <th align="center">8 µm bins</th>
+  </tr>
+  <tr>
+    <td align="center">
       <img src="example_plots/ovarian_cancer_16um_spatial_scatterplot_ambiguity.png" width="350">
     </td>
     <td align="center">
