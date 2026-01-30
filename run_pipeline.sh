@@ -106,6 +106,6 @@ REPORT="logs/pipeline_runtime_report.txt"
 
 cat "$REPORT"
 
-echo "=========================================="
-echo "Pipeline successfully submitted 🎉"
-echo "=========================================="
+echo "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+echo "Pipeline successfully submitted"
+echo "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
