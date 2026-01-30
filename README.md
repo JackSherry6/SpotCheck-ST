@@ -12,7 +12,7 @@ One of my goals during the 2025/26 winter break was to get familiar with process
 Spot-based spatial transcriptomics trades resolution for scale, especially in-situ capturing (ISC) methods like 10x visium. While 10x has greatly shrunk the bin size all the way down from 16x16 to 2x2 um, the issue remains that bins can capture partial cells, overlapping cell processes, diffusion of transcripts, and segmentation or alignment noise, all of which contribute to some bins being an aggregate rather than a true single-cell readout, not to mention, the computational burdon for a 2x2 workflow can be extremely high. By standard workflows these mixed, ambiguous signals can be confidently misassigned to the wrong cell type or spatial domain. Deconvolution is commonly employed to fix this issue but it is not a perfect solution. As I found out during my testing, deconvolution depends greatly on the quality of the reference, can be sensitive to modeling assumptions, and doesn't do much to indicate which bins are robust versus ambiguous. This creates a practical issue, knowing where in the tissue the inferred labels are trustworthy, and where they should be treated cautiously—especially when downstream biological conclusions may hinge on small spatial boundaries or rare populations.
 
 ## Solution:
-Attempt to create perturbations of various clustering parameters, track the cluster variation of each spot, and measure the consistency of each spot's neighborhood over perturbations using a kNN-type model. 
+Create perturbations of various clustering parameters, track the cluster variation of each spot. Then measure the consistency of each spot's neighborhood over perturbations using a kNN-type model to see which spots . 
 
 ### Building the Perturbations (technical aspects):
 - Perturbations are defined in the config.py file and built up-front in a single table (perturbations.parquet). Each row is one fully specified clustering run (unique run_id + parameter set). This makes the experiment reproducible and lets you submit the whole grid as an array job.
@@ -30,8 +30,19 @@ Attempt to create perturbations of various clustering parameters, track the clus
 - Each perturbation writes a spot-level parquet with spot_id, cluster labels, cluster sizes, spatial coordinates, and the full parameter set to enable per-spot stability computation across runs. These parquets are merged into a single perurbations_expanded.parquet for downstream analysis.
 
 ### Calculating Stability (technical aspects: 
-
-### Speed and Memory Optimizations:
+- First, the script factorizes spot_id and run_id into stable integer indices so all the downstream operations can be done efficiently in NumPy rather than repeated pandas joins which saves a lot of runtime.
+- Spatial coordinates are then deduplicated per spot (generates a warning if any spot has inconsistent x/ys across runs) to guarantee that neighborhood structure is fixed and not overwritten by per-run rows.
+- Final stability/ambiguity is measured as a combination of global and local stability. Local stability asks whether a spot’s label is consistent with its immediate spatial neighborhood across perturbations (which is good for detecting boundaries, mixed bins, and spatially incoherent assignments), while global stability asks whether its cluster membership remains consistent at the dataset-wide level (good for detecting overall clustering volatility or label switching).
+- Local Stability:
+  - The script builds a single k-nearest-neighbors graph from the deduplicated (x,y) coordinates and reuses this neighbor list for every perturbation run which saves a lot of time.
+  - For each run pair, and for each spot, the script compares the set of neighbor positions that co-cluster with the spot in run 1 vs run 2 and computes a Jaccard similarity over those neighbor positions.
+  - Disagreements are counted explicitly meaning that Jaccard = 0 is included instead of skipped, which avoids biasing stability upward.
+- Global Stability:
+  - The script compares cluster structure across runs without accounting for spatial proximity.
+  - For each sampled run pair, it iterates over cluster pairs (C1, C2) and computes Jaccard(C1, C2) based on their spot membership.
+  - That Jaccard value is then attributed only to the spots in the intersection C1 ∩ C2, meaning a spot’s global score reflects how consistently its cluster membership overlaps with a corresponding cluster across perturbations rather than being diluted by unrelated clusters.
+- Because evaluating all run pairs can be expensive when the perturbation grid is large, the script optionally subsamples run pairs up to --max_run_pairs using a fixed random seed (--seed, default 42) so estimates are reproducible and runtime stays bounded.
+- The global and local stabilities are combined into a single overall ambiguity score: ambiguity = α * (1 - local_stability) + β * (1 - global_stability) where α and β are specified in the command line arguments. The ability to modify these values on the fly allows you to emphasize whatever aspects of uncertainty you care about most (boundary mixing vs. overall clustering volatility). As a baseline I prefer to use α = 0.7-0.8 and β = 0.2-0.3. 
 
 ## Example Figures:
 -Soybean Data:
