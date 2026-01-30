@@ -51,14 +51,31 @@ def parse_args():
         default=0.3,
         help="Weight for global uncertainty (1 - global_stability) in ambiguity.",
     )
+    parser.add_argument(
+        "--local_empty_empty",
+        type=str,
+        default="1.0",
+        choices=["1.0", "0.0", "drop"],
+        help=(
+            "How to handle the local Jaccard when both runs have empty same-cluster "
+            "neighbor sets (union==0). "
+            "1.0: treat as perfectly consistent; 0.0: treat as unstable; "
+            "drop: exclude those run-pairs from the average. (default: 1.0)"
+        ),
     return parser.parse_args()
 
 def build_neighbors(coords: np.ndarray, k: int) -> np.ndarray:
+    """
+    Build k-NN spatial neighbors for each spot.
+
+    coords: (n_spots, 2) array of (x, y)
+    returns: (n_spots, k_eff) array of neighbor indices
+    """
     n_spots = coords.shape[0]
     n_neighbors = min(k + 1, n_spots)
     nn = NearestNeighbors(n_neighbors=n_neighbors, algorithm="auto")
     nn.fit(coords)
-    distances, indices = nn.kneighbors(coords)
+    _, indices = nn.kneighbors(coords)
     if n_neighbors > 1:
         neighbors = indices[:, 1:]
     else:
@@ -96,7 +113,8 @@ def compute_global_stability(run_ids, run_to_clusters, n_spots: int, run_pairs,)
 
                 union = len1 + len2 - inter_len
                 j = inter_len / union if union > 0 else 0.0
-                if j == 0.0:
+
+                if j <= 0.0:
                     continue
 
                 global_sum[inter_spots] += j
@@ -109,63 +127,61 @@ def compute_global_stability(run_ids, run_to_clusters, n_spots: int, run_pairs,)
     return global_stability, global_count
 
 
-def compute_local_stability(run_ids, labels, neighbors: np.ndarray, run_pairs,):
+def compute_local_stability_fixed(run_ids, labels: np.ndarray, neighbors: np.ndarray, run_pairs, empty_empty_mode: str = "1.0",):
     n_runs, n_spots = labels.shape
-    k = neighbors.shape[1]
+    _ = run_ids 
 
     local_sum = np.zeros(n_spots, dtype=np.float64)
     local_count = np.zeros(n_spots, dtype=np.int32)
 
+    nbr = neighbors 
+    if nbr.size == 0:
+        return np.zeros(n_spots, dtype=np.float64), np.zeros(n_spots, dtype=np.int32)
+
     for idx, (ri, rj) in enumerate(run_pairs, 1):
-        r1 = run_ids[ri]
-        r2 = run_ids[rj]
-        print(f"[local] Run pair {idx}/{len(run_pairs)}: {r1} vs {r2}")
+        print(f"[local] Run pair {idx}/{len(run_pairs)}: {run_ids[ri]} vs {run_ids[rj]}")
 
         labels_r1 = labels[ri]
         labels_r2 = labels[rj]
 
-        for s in range(n_spots):
-            nbr_idx = neighbors[s]  # (k,)
+        valid = (labels_r1 >= 0) & (labels_r2 >= 0)
+        if not np.any(valid):
+            continue
 
-            if nbr_idx.size == 0:
+        nbr_lab1 = labels_r1[nbr] 
+        nbr_lab2 = labels_r2[nbr]
+
+        mask1 = nbr_lab1 == labels_r1[:, None]
+        mask2 = nbr_lab2 == labels_r2[:, None]
+
+        inter = np.logical_and(mask1, mask2).sum(axis=1)
+        union = np.logical_or(mask1, mask2).sum(axis=1)
+
+        if empty_empty_mode == "drop":
+            good = valid & (union > 0)
+            if not np.any(good):
                 continue
+            j = np.zeros(n_spots, dtype=np.float64)
+            j[good] = inter[good] / union[good]
+            local_sum[good] += j[good]
+            local_count[good] += 1
+        else:
+            empty_val = 1.0 if empty_empty_mode == "1.0" else 0.0
+            j = np.empty(n_spots, dtype=np.float64)
+            j[union > 0] = inter[union > 0] / union[union > 0]
+            j[union == 0] = empty_val
 
-            c1 = labels_r1[s]
-            c2 = labels_r2[s]
-            if c1 < 0 or c2 < 0:
-                continue
-
-            nbr_lab1 = labels_r1[nbr_idx]
-            nbr_lab2 = labels_r2[nbr_idx]
-
-            mask1 = nbr_lab1 == c1
-            mask2 = nbr_lab2 == c2
-
-            if not (mask1.any() or mask2.any()):
-                continue
-
-            inter = np.logical_and(mask1, mask2).sum()
-            union = np.logical_or(mask1, mask2).sum()
-            if union == 0:
-                continue
-
-            j = inter / union
-            if j == 0.0:
-                continue
-
-            local_sum[s] += j
-            local_count[s] += 1
+            local_sum[valid] += j[valid]
+            local_count[valid] += 1
 
     local_stability = np.zeros(n_spots, dtype=np.float64)
     mask = local_count > 0
     local_stability[mask] = local_sum[mask] / local_count[mask]
-
     return local_stability, local_count
 
 
 def main():
     args = parse_args()
-
     print(f"Loading {args.input_parquet} ...")
     df = pd.read_parquet(
         args.input_parquet,
@@ -190,9 +206,28 @@ def main():
     n_runs = len(run_ids)
     print(f"Total runs: {n_runs}")
 
-    coords = np.zeros((n_spots, 2), dtype=np.float64)
-    coords[df["spot_idx"].values, 0] = df["x"].values
-    coords[df["spot_idx"].values, 1] = df["y"].values
+    spot_xy = df[["spot_id", "x", "y"]].copy()
+
+    grp = spot_xy.groupby("spot_id", sort=False)
+    x_nuniq = grp["x"].nunique(dropna=False)
+    y_nuniq = grp["y"].nunique(dropna=False)
+    conflicted = (x_nuniq > 1) | (y_nuniq > 1)
+    if conflicted.any():
+        n_conf = int(conflicted.sum())
+        print(
+            f"WARNING: {n_conf} spot_id(s) have non-identical x/y across runs. "
+            "Using the first observed (spot_id, x, y)."
+        )
+
+    spot_xy = (
+        spot_xy.drop_duplicates("spot_id")
+               .set_index("spot_id")
+               .loc[spot_ids, ["x", "y"]]
+    )
+    if spot_xy.isnull().any().any():
+        raise ValueError("Found missing x/y for some spot_ids after deduping coordinates.")
+
+    coords = spot_xy.to_numpy(dtype=np.float64)
 
     print(f"Building k-NN neighbors (k={args.k_neighbors}) ...")
     neighbors = build_neighbors(coords, k=args.k_neighbors)
@@ -202,10 +237,10 @@ def main():
     run_to_clusters = [dict() for _ in range(n_runs)]
 
     print("Building label matrix and cluster→spots mapping ...")
-    for r_idx, run in enumerate(run_ids):
+    for r_idx, _run in enumerate(run_ids):
         g = df[df["run_idx"] == r_idx]
 
-        clust_codes, clust_labels = pd.factorize(g["cluster"])
+        clust_codes, _clust_labels = pd.factorize(g["cluster"])
         spot_idx = g["spot_idx"].values
 
         clust_codes = clust_codes.astype(np.int32)
@@ -217,7 +252,6 @@ def main():
             spots = spot_idx[mask]
             clusters[int(code)] = np.sort(spots.astype(np.uint32))
         run_to_clusters[r_idx] = clusters
-
     del df
 
     all_pairs = list(combinations(range(n_runs), 2))
@@ -238,9 +272,7 @@ def main():
     )
 
     print("Computing LOCAL neighbor-based stability ...")
-    local_stability, local_count = compute_local_stability(
-        run_ids, labels, neighbors, run_pairs
-    )
+    local_stability, local_count = compute_local_stability_fixed(run_ids, labels, neighbors, run_pairs, empty_empty_mode=args.local_empty_empty,)
 
     alpha = args.alpha
     beta = args.beta
