@@ -45,7 +45,6 @@ Create perturbations of various clustering parameters, track the cluster variati
 - The global and local stabilities are combined into a single overall ambiguity score: ambiguity = α * (1 - local_stability) + β * (1 - global_stability) where α and β are specified in the command line arguments. The ability to modify these values on the fly allows you to emphasize whatever aspects of uncertainty you care about most (boundary mixing vs. overall clustering volatility). As a baseline I prefer to use α = 0.7-0.8 and β = 0.2-0.3. 
 
 ## Example Figures:
--Soybean Data:
 <table>
   <tr>
     <th align="center">Soybean 16 µm bins</th>
