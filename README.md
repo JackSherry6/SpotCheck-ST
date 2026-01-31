@@ -74,3 +74,6 @@ Create perturbations of various clustering parameters, track the cluster variati
     </td>
   </tr>
 </table>
+
+### Why is the average ambiguity for the 8um samples higher?
+- 
