@@ -76,4 +76,4 @@ Create perturbations of various clustering parameters, track the cluster variati
 </table>
 
 ### Why is the average ambiguity for the 8um samples higher?
-- 
+- From what I've seen from testing, the 8um samples show more ambiguous regions because finer bins have less signal, and reveal more boundary/transition structure, so cluster labels flip more across perturbations; 16 µm averages more signal and is therefore more stable. I'm currently trying to figure out ways to work around this and make the scores scale more evenly across bin sizes. 
