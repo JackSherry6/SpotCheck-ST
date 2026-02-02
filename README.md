@@ -127,36 +127,25 @@ Create perturbations of various clustering parameters, track the cluster variati
 - In some regions, the 8 um data is more stable, and these tend to fall in clusters that are more diffuse and widely dispersed.
 
 ## Comparing number of clustering variables (mouse embryo data):
+It should be considered that these are extremely variable based on tissue type, which parameters where added or removed, and what range of paramaters were used.
 <table>
   <tr>
-    <th align="center">144 Perturbations</th>
-    <th align="center">108 Perturbations</th>
-   <th align="center">72 Perturbations</th>
+    <th align="center">16um bins</th>
   </tr>
   <tr>
     <td align="center">
-      <img src="example_plots/144params_stability_histogram_ambiguity.png" width="300">
-    </td>
-    <td align="center">
-      <img src="example_plots/108params_stability_histogram_ambiguity.png" width="300">
-    </td>
-     <td align="center">
-      <img src="example_plots/72params_stability_histogram_ambiguity.png" width="300">
+      <img src="example_plots/mouse_embryo_violin_16.png" width="700">
     </td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <th align="center">48 Perturbations</th>
-    <th align="center">32 Perturbations</th>
+    <th align="center">8um bins</th>
   </tr>
   <tr>
     <td align="center">
-      <img src="example_plots/48params_stability_histogram_ambiguity.png" width="300">
-    </td>
-    <td align="center">
-      <img src="example_plots/32params_stability_histogram_ambiguity.png" width="300">
+      <img src="example_plots/mouse_embryo_violin_8.png" width="700">
     </td>
   </tr>
 </table>
