@@ -127,7 +127,7 @@ Create perturbations of various clustering parameters, track the cluster variati
 - In some regions, the 8 um data is more stable, and these tend to fall in clusters that are more diffuse and widely dispersed.
 
 ## Comparing number of clustering variables (mouse embryo data):
-It should be considered that these are extremely variable based on tissue type, which parameters where added or removed, and what range of paramaters were used.
+Benchmarking this pipeline for accuracy has probably been the hardest part of the entire process, since spatial transcriptomics rarely offers ground truth at spot resolution, so I focused on internal consistency, resolution-aware comparisons, and cross-dataset reproducibility as practical validation signals. It should be considered that these are extremely variable based on tissue type, which parameters where added or removed, and what range of paramaters were used. If you are interested in any additional benchmarking data, I have lots more figures and data that I did not include in this readme so please reach out to me through my linkedin if you are interested in that. 
 <table>
   <tr>
     <th align="center">16um bins</th>
