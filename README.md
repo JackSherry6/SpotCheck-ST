@@ -4,6 +4,36 @@ CSV/Parquet files and plots describing local/global co-clustering stability, per
 - Currently works for 16um and 8um fresh-frozen bin sizes (still being optimized for 2um and FFPE data)
 - Currently runs on shared computing clusters that utilize SGE/Grid Engine–style queueing systems (working on extending to AWS)
 
+# Usage:
+### 1) Configure inputs
+Edit `config.py`:
+- `CONFIG["paths"]["data_path"]` -> path to your 10x/Visium dataset
+- perturbation settings under `qc`, `graph`, `spatial`, etc.
+
+### 2) Activate environment
+Make sure your cluster environment has:
+- Python with `scanpy`, `squidpy`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `pyarrow`
+- a Conda env named `spatial_analysis_env`
+- `qsub` available
+
+### 3) Run the full pipeline
+```bash
+bash run_pipeline.sh
+```
+This will:
+1. generate perturbation parameter sets (perturbations.parquet)
+2. split runs by estimated memory tier (8/16/32 GB)
+3. submit array jobs for all perturbations
+4. merge outputs into perturbations_expanded.parquet
+5. compute Jaccard-based stability (spot_jaccard_stability.csv)
+6. generate plots in figures/
+   
+Key outputs:
+- perturbations_expanded.parquet
+- spot_jaccard_stability.csv
+- figures/ (histograms, spatial plots, ambiguity gallery)
+- logs/ (runtime logs for each process)
+
 # About:
 
 ## Motivation:
