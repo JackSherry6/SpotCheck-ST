@@ -91,6 +91,21 @@ Create perturbations of various clustering parameters, track the cluster variati
   </tr>
 </table>
 
+<table>
+  <tr>
+    <th align="center">Soybean Ambiguity Plot</th>
+    <th align="center">Soybean Cluster-Specific Plots</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="example_plots/mouse_embryo_spatial_scatterplot_ambiguity.png" width="500">
+    </td>
+    <td align="center">
+      <img src="example_plots/mouse_embryo_ambiguity_gallery.png" width="500">
+    </td>
+  </tr>
+</table>
+
 ## Comparing 16um and 8um
 <table>
   <tr>
